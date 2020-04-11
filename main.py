@@ -72,7 +72,7 @@ async def broadcast(block: str):
             "block": block
         }
 
-        r = requests.get("http://" + key + "/network/receiveBlock", params)
+        r = requests.get("http://" + key + "/network/broadcastBlock", params)
         if r.status_code == 200:
             return {"code": 200, "message": "广播成功"}
         else:
