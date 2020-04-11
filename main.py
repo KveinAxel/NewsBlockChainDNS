@@ -1,8 +1,10 @@
+from typing import Dict, Tuple
+
 from fastapi import FastAPI
 import re
 import requests
 app = FastAPI()
-superNodes = dict()
+superNodes: Dict[Tuple[str, int], int] = dict()
 
 # IP的正则表达式
 pattern = re.compile(r'((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}')
@@ -10,35 +12,37 @@ pattern = re.compile(r'((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d)
 
 # 请求成为普通节点
 @app.post("/node")
-async def node(ip: str):
+async def node(url: str, port: int):
 
     # 检查IP是否合法
-    if pattern.search(ip):
+    if pattern.search(url):
 
         # 将超级节点排序
         res = sorted(superNodes.items(), key=lambda x: x[1])
         if len(res):
 
-            # 取出负载最少的超级节点的ip
-            res = res[0][0]
+            # 取出负载最少的超级节点的url和port
+            s_url = res[0][0][0]
+            s_port = res[0][0][1]
 
             # 负载数加一
-            superNodes[res] = superNodes[res] + 1
+            superNodes[res[0]] = superNodes[res[0]] + 1
 
             # 请求参数
             params = {
-                'ip': ip
+                'url': url,
+                'port': port,
             }
 
             # 将ip加入超级节点的ip列表
-            r = requests.get("http://" + res + "/network/saveIp", params=params)
+            r = requests.get("http://" + s_url + ":" + s_port + "/network/saveIp", params=params)
 
             # 处理返回结果
             if r.status_code != 200:
                 return {"code": 400, "message": "加入网络失败"}
 
             # 返回超级节点的IP
-            return {"code": 200, "message": "加入网络成功", "data": res}
+            return {"code": 200, "message": "加入网络成功", "data": {"url": s_url, "port": s_port}}
         else:
             return {"code": 400, "message": "无超级节点，无法加入区块网络"}
     else:
@@ -47,14 +51,14 @@ async def node(ip: str):
 
 # 请求成为超级节点
 @app.post("/superNode")
-async def super_node(ip: str):
+async def super_node(url: str, port: int):
 
     # 检查IP地址
-    if pattern.search(ip):
+    if pattern.search(url) and 0 < port <= 65536:
 
         # 加入节点，负载为0
-        if ip not in superNodes:
-            superNodes[ip] = 0
+        if (url, port) not in superNodes:
+            superNodes[(url, port)] = 0
             return {"code": 200, "message": "加入区块网络成功"}
         else:
             return {"code": 400, "message": "该IP已经成为超级节点，请勿重复添加"}
@@ -72,7 +76,7 @@ async def broadcast(block: str):
             "block": block
         }
 
-        r = requests.get("http://" + key + "/network/broadcastBlock", params)
+        r = requests.get("http://" + key[0] + ":" + str(key[1]) + "/network/broadcastBlockBySuperNode", params)
         if r.status_code == 200:
             return {"code": 200, "message": "广播成功"}
         else:
