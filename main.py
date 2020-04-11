@@ -27,11 +27,11 @@ async def node(ip: str):
 
             # TODO 请求超级节点以保存IP
             # 返回超级节点的IP
-            return {"ip": res}
+            return {"code": 200, "message": "加入网络成功", "data": res}
         else:
-            return {"error": "无超级节点，无法加入区块网络"}
+            return {"code": 400, "message": "无超级节点，无法加入区块网络"}
     else:
-        return {"error": "IP地址格式异常"}
+        return {"code": 400, "message": "IP地址格式异常"}
 
 
 # 请求成为超级节点
@@ -44,11 +44,11 @@ async def super_node(ip: str):
         # 加入节点，负载为0
         if ip not in superNodes:
             superNodes[ip] = 0
-            return {"success": "加入区块网络成功"}
+            return {"code": 200, "message": "加入区块网络成功"}
         else:
-            return {"error": "该IP已经成为超级节点，请勿重复添加"}
+            return {"code": 400, "message": "该IP已经成为超级节点，请勿重复添加"}
     else:
-        return {"error": "IP地址格式异常"}
+        return {"code": 400, "message": "IP地址格式异常"}
 
 
 # 向超级节点广播区块
