@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Tuple
 
 from fastapi import FastAPI
@@ -52,7 +53,7 @@ async def node(url: str, port: int):
 # 请求成为超级节点
 @app.post("/superNode")
 async def super_node(url: str, port: int):
-
+    # todo 将原来的父节点中保存的普通节点删除（如果有的话）
     # 检查IP地址
     if pattern.search(url) and 0 < port <= 65536:
 
@@ -81,3 +82,43 @@ async def broadcast(block: str):
             return {"code": 200, "message": "广播成功"}
         else:
             return {"code": 200, "message": "广播失败"}
+
+
+# 向超级节点请求区块
+@app.post("/getBlockChain")
+async def broadcast():
+    nth_max = 0
+    block = ''
+    for nodes in superNodes.keys():
+
+        r = requests.get("http://" + nodes[0] + ":" + str(nodes[1]) + "/network/getBlock")
+        if r.status_code == 200:
+            j = json.loads(r.text)
+            if j['nth'] > nth_max:
+                block = j['block']
+
+    if block == '':
+        return {"code": 400, "message": "没有请求到数据"}
+    else:
+        return {"code": 200, "message": "成功请求到数据", "data": block}
+
+
+# 向超级节点部分请求区块
+@app.post("/getBlockChainPartly")
+async def broadcast(key: str):
+    nth_max = 0
+    block = ''
+    for nodes in superNodes.keys():
+        params = {
+            "key": key
+        }
+        r = requests.get("http://" + nodes[0] + ":" + str(nodes[1]) + "/network/getBlockPartly", params=params)
+        if r.status_code == 200:
+            j = json.loads(r.text)
+            if j['nth'] > nth_max:
+                block = j['block']
+
+    if block == '':
+        return {"code": 400, "message": "没有请求到数据"}
+    else:
+        return {"code": 200, "message": "成功请求到数据", "data": block}
