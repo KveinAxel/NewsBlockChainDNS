@@ -4,6 +4,7 @@ from typing import Dict, Tuple
 from fastapi import FastAPI
 import re
 import requests
+
 app = FastAPI()
 superNodes: Dict[Tuple[str, int], int] = dict()
 
@@ -12,9 +13,8 @@ pattern = re.compile(r'((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d)
 
 
 # 请求成为普通节点
-@app.post("/node")
+@app.get("/node")
 async def node(url: str, port: int):
-
     # 检查IP是否合法
     if pattern.search(url):
 
@@ -27,7 +27,7 @@ async def node(url: str, port: int):
             s_port = res[0][0][1]
 
             # 负载数加一
-            superNodes[res[0]] = superNodes[res[0]] + 1
+            superNodes[res[0][0]] = superNodes[res[0][0]] + 1
 
             # 请求参数
             params = {
@@ -36,7 +36,7 @@ async def node(url: str, port: int):
             }
 
             # 将ip加入超级节点的ip列表
-            r = requests.get("http://" + s_url + ":" + s_port + "/network/saveIp", params=params)
+            r = requests.get("http://" + s_url + ":" + str(s_port) + "/network/saveIp", params=params)
 
             # 处理返回结果
             if r.status_code != 200:
@@ -51,7 +51,7 @@ async def node(url: str, port: int):
 
 
 # 请求成为超级节点
-@app.post("/superNode")
+@app.get("/superNode")
 async def super_node(url: str, port: int):
     # todo 将原来的父节点中保存的普通节点删除（如果有的话）
     # 检查IP地址
@@ -60,6 +60,12 @@ async def super_node(url: str, port: int):
         # 加入节点，负载为0
         if (url, port) not in superNodes:
             superNodes[(url, port)] = 0
+            params = {
+                "url": url,
+                "port": port
+            }
+            for key in superNodes.keys():
+                r = requests.get("http://" + key[0] + ":" + str(key[1]) + "/network/deleteNode" + "?url=" + url + "&port=" + str(port))
             return {"code": 200, "message": "加入区块网络成功"}
         else:
             return {"code": 400, "message": "该IP已经成为超级节点，请勿重复添加"}
@@ -68,14 +74,13 @@ async def super_node(url: str, port: int):
 
 
 # 向超级节点广播区块
-@app.post("/broadcast")
+@app.get("/broadcast")
 async def broadcast(block: str):
+    # 构造参数
+    params = {
+        "block": block
+    }
     for key in superNodes.keys():
-
-        # 构造参数
-        params = {
-            "block": block
-        }
 
         r = requests.get("http://" + key[0] + ":" + str(key[1]) + "/network/broadcastBlockBySuperNode", params)
         if r.status_code == 200:
@@ -85,26 +90,29 @@ async def broadcast(block: str):
 
 
 # 向超级节点请求区块
-@app.post("/getBlockChain")
+@app.get("/getBlockChain")
 async def broadcast():
     nth_max = 0
-    block = ''
+    block_max = ''
     for nodes in superNodes.keys():
 
         r = requests.get("http://" + nodes[0] + ":" + str(nodes[1]) + "/network/getBlock")
         if r.status_code == 200:
             j = json.loads(r.text)
-            if j['nth'] > nth_max:
-                block = j['block']
+            data = j['data']
+            nth = int(data['nth'])
+            block = data['block']
+            if nth > nth_max:
+                block_max = block
 
-    if block == '':
+    if block_max == '':
         return {"code": 400, "message": "没有请求到数据"}
     else:
-        return {"code": 200, "message": "成功请求到数据", "data": block}
+        return {"code": 200, "message": "成功请求到数据", "data": block_max}
 
 
 # 向超级节点部分请求区块
-@app.post("/getBlockChainPartly")
+@app.get("/getBlockChainPartly")
 async def broadcast(key: str):
     nth_max = 0
     block = ''
